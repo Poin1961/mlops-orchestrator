@@ -1,49 +1,87 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"mlops-orchestrator/pkg/api"
-	"mlops-orchestrator/pkg/engine"
+	"net/http"
 
-	"gopkg.in/yaml.v2"
+	"github.com/Poin1961/mlops-orchestrator/pkg/api"
+	"github.com/Poin1961/mlops-orchestrator/pkg/engine"
 )
 
-type Controller struct {
-	workflow api.Workflow
-	engine   *engine.Engine
+type WorkflowController struct {
+	engine *engine.WorkflowEngine
 }
 
-func NewController(workflowFile string) (*Controller, error) {
-	data, err := ioutil.ReadFile(workflowFile)
+func NewWorkflowController(e *engine.WorkflowEngine) *WorkflowController {
+	return &WorkflowController{
+		engine: e,
+	}
+}
+
+func (wc *WorkflowController) CreateWorkflowHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req api.CreateWorkflowRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read workflow file: %w", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
 	}
 
-	var workflow api.Workflow
-	if err := yaml.Unmarshal(data, &workflow); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal workflow YAML: %w", err)
-	}
+	workflow := wc.engine.CreateWorkflow(req.Name, req.Description, req.Tasks)
 
-	eng := engine.NewEngine()
-
-	return &Controller{
-		workflow: workflow,
-		engine:   eng,
-	}, nil
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(workflow)
 }
 
-func (c *Controller) Run() error {
-	log.Printf("Executing workflow: %s\n", c.workflow.Metadata.Name)
-
-	for _, task := range c.workflow.Spec.Tasks {
-		log.Printf("Running task: %s\n", task.Name)
-		if err := c.engine.RunTask(task); err != nil {
-			return fmt.Errorf("task %s failed: %w", task.Name, err)
-		}
-		log.Printf("Task %s completed.\n", task.Name)
+func (wc *WorkflowController) StartWorkflowHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
-	return nil
+	workflowID := r.URL.Query().Get("id")
+	if workflowID == "" {
+		http.Error(w, "Workflow ID is required", http.StatusBadRequest)
+		return
+	}
+
+	err := wc.engine.StartWorkflow(workflowID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Workflow %s started successfully", workflowID)
+}
+
+func (wc *WorkflowController) GetWorkflowStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method is allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	workflowID := r.URL.Query().Get("id")
+	if workflowID == "" {
+		http.Error(w, "Workflow ID is required", http.StatusBadRequest)
+		return
+	}
+
+	workflow, err := wc.engine.GetWorkflowStatus(workflowID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(workflow)
+}
+
+func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "MLOps Orchestrator is healthy!")
 }

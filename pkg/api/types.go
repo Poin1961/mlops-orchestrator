@@ -1,30 +1,31 @@
 package api
 
 type Workflow struct {
-	APIVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
-	Metadata   Metadata `yaml:"metadata"`
-	Spec       WorkflowSpec `yaml:"spec"`
-}
-
-type Metadata struct {
-	Name string `yaml:"name"`
-}
-
-type WorkflowSpec struct {
-	Tasks []Task `yaml:"tasks"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Tasks       []Task `json:"tasks"`
 }
 
 type Task struct {
-	Name    string `yaml:"name"`
-	Image   string `yaml:"image"`
-	Command []string `yaml:"command"`
-	Inputs  []Artifact `yaml:"inputs,omitempty"`
-	Outputs []Artifact `yaml:"outputs,omitempty"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Type        string            `json:"type"` // e.g., "data_ingestion", "model_training", "model_deployment"
+	Status      string            `json:"status"` // e.g., "pending", "running", "completed", "failed"
+	Config      map[string]string `json:"config"`
+	Dependencies []string         `json:"dependencies"`
 }
 
-type Artifact struct {
-	Name string `yaml:"name"`
-	From string `yaml:"from,omitempty"`
-	To   string `yaml:"to,omitempty"`
+type CreateWorkflowRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Tasks       []Task `json:"tasks"`
 }
+
+type WorkflowStatusResponse struct {
+	WorkflowID string `json:"workflow_id"`
+	Status     string `json:"status"` // e.g., "running", "completed", "failed"
+	Tasks      []Task `json:"tasks"`
+}
+

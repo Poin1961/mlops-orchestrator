@@ -1,7 +1,5 @@
-module mlops-orchestrator
+module github.com/Poin1961/mlops-orchestrator
 
 go 1.16
 
-require (
-	gopkg.in/yaml.v2 v2.4.0
-)
+require github.com/google/uuid v1.3.0
